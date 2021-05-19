@@ -11,6 +11,7 @@ import os
 import argparse
 
 from migen import *
+from migen.genlib.resetsync import AsyncResetSynchronizer
 
 from litex_boards.platforms import arty
 from litex.build.xilinx.vivado import vivado_build_args, vivado_build_argdict
@@ -29,10 +30,16 @@ class _CRG(Module):
 
         # # #
 
+        # User Btn 0 : PLL Reset.
+        # User Btn 1 : PLL Power-Down.
+        # User Btn 2 : Clock Gating.
+
         self.submodules.pll = pll = S7PLL(speedgrade=-1)
-        self.comb += pll.reset.eq(~platform.request("cpu_reset") | self.rst)
+        self.comb += pll.reset.eq(platform.request("user_btn", 0) | self.rst)
+        self.comb += pll.power_down.eq(platform.request("user_btn", 1))
         pll.register_clkin(platform.request("clk100"), 100e6)
-        pll.create_clkout(self.cd_sys,       sys_clk_freq)
+        pll.create_clkout(self.cd_sys, sys_clk_freq, with_reset=False)
+        self.specials += AsyncResetSynchronizer(self.cd_sys, ~pll.locked | platform.request("user_btn", 2))
         platform.add_false_path_constraints(self.cd_sys.clk, pll.clkin) # Ignore sys_clk to pll.clkin path created by SoC's rst.
 
 # BaseSoC ------------------------------------------------------------------------------------------
