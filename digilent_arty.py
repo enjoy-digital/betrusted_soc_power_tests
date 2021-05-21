@@ -56,11 +56,24 @@ class BaseSoC(SoCCore):
         # CRG --------------------------------------------------------------------------------------
         self.submodules.crg = _CRG(platform, sys_clk_freq)
 
+# EmptySoC ------------------------------------------------------------------------------------------
+
+class EmptySoC(SoCMini):
+    def __init__(self, variant="a7-35", toolchain="vivado", sys_clk_freq=int(100e6), **kwargs):
+        platform = arty.Platform(variant=variant, toolchain=toolchain)
+
+        # SoCCore ----------------------------------------------------------------------------------
+        SoCMini.__init__(self, platform, sys_clk_freq)
+
+        # Drive a Led low to do something...
+        self.comb += platform.request("user_led", 0).eq(0)
+
 # Build --------------------------------------------------------------------------------------------
 
 def main():
     parser = argparse.ArgumentParser(description="LiteX SoC on Arty A7")
     parser.add_argument("--toolchain",           default="vivado",     help="Toolchain use to build (default: vivado)")
+    parser.add_argument("--static",              action="store_true",  help="Generate empty Bistream to measure board's static power.")
     parser.add_argument("--build",               action="store_true",  help="Build bitstream")
     parser.add_argument("--load",                action="store_true",  help="Load bitstream")
     parser.add_argument("--variant",             default="a7-35",      help="Board variant: a7-35 (default) or a7-100")
@@ -70,7 +83,8 @@ def main():
     vivado_build_args(parser)
     args = parser.parse_args()
 
-    soc = BaseSoC(
+    soc_cls = BaseSoC if not args.static else EmptySoC
+    soc = soc_cls(
         variant           = args.variant,
         toolchain         = args.toolchain,
         sys_clk_freq      = int(float(args.sys_clk_freq)),
